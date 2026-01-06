@@ -23,7 +23,9 @@ com\example\valuation\dto\PositionResponse.class
 com\example\valuation\entity\ValuationEntity.class
 com\example\valuation\dto\NavRecordDTO.class
 com\example\valuation\entity\Position.class
+com\example\valuation\service\DlqService.class
 com\example\valuation\service\CentralPubListener.class
 com\example\valuation\fileservice\DailyFileScheduler.class
 com\example\valuation\entity\PositionHistory.class
+com\example\valuation\config\JmsConfig.class
 com\example\valuation\service\StatusTrackingService.class

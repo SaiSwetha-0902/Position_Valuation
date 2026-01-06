@@ -59,7 +59,7 @@ public class DailyFileScheduler {
             Integer firmNumber = entry.getKey();
             List<ValuationEntity> firmRecords = entry.getValue();
 
-            String fileName = "valuation_" + today + "_firm_" + String.format("%04d", firmNumber) + ".txt";
+            String fileName = "valuation_" + today + "_fund_" + String.format("%04d", firmNumber) + ".txt";
             File localFile = new File(fileName);
             UUID fileId = UUID.randomUUID();
 
@@ -165,7 +165,6 @@ public class DailyFileScheduler {
         return line;
     }
 
-    /* ================= HELPERS ================= */
     private String padRight(String s, int len) {
         if (s == null) s = "";
         return String.format("%1$-" + len + "s", s).substring(0, len);
@@ -182,7 +181,6 @@ public class DailyFileScheduler {
         return String.format("%0" + len + "." + decimals + "f", num);
     }
 
-    /* ================= DLQ HANDLERS ================= */
     private void sendFileDLQ(Integer firmNumber, LocalDate date, List<ValuationEntity> records, Exception e) {
         log.error("FILE_DLQ → firm={}, date={}, count={}, reason={}",
                 firmNumber, date, records.size(), e.getMessage());

@@ -43,7 +43,6 @@ public class ValuationService {
     private PositionService positionService;
 
 
-    /* ================= SINGLE ================= */
 
     @Transactional
     public ValuationEntity valuation(CanonicalTradeDTO trade) {
@@ -56,7 +55,6 @@ public class ValuationService {
         
     }
 
-    /* ================= BATCH ================= */
 
     @Transactional
     public List<ValuationEntity> valuationBatch(List<CanonicalTradeDTO> trades) {
@@ -82,7 +80,7 @@ public class ValuationService {
     }
 
 
-    /* ================= CORE LOGIC ================= */
+
 
     private ValuationEntity buildEntity(CanonicalTradeDTO trade) {
 
@@ -108,7 +106,7 @@ public class ValuationService {
         val.setDob(trade.getDob());
         val.setValuationDate(LocalDate.now());
 
-        /* ========= NORMALIZE TRANSACTION TYPE ========= */
+
         String txnType = trade.getTransactionType();
 
         if ("B".equalsIgnoreCase(txnType)) {
@@ -119,10 +117,8 @@ public class ValuationService {
             throw new RuntimeException("Invalid transaction type: " + txnType);
         }
 
-        // ✅ THIS is the ONLY place transactionType is set
         val.setTransactionType(txnType);
 
-        /* ========= REJECT FLOW ========= */
         if (isRejected) {
             val.setConfirmedStatus("REJECT");
             val.setRejectReason("ACCOUNT_SUSPENDED");
@@ -135,7 +131,6 @@ public class ValuationService {
             return val;
         }
 
-        /* ========= CONFIRMED FLOW ========= */
         val.setConfirmedStatus("CONFIRMED");
         val.setRejectReason(null);
 

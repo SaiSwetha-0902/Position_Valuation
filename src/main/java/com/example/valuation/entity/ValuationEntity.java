@@ -129,5 +129,10 @@ public class ValuationEntity {
     @Column(name = "status", nullable = false, length = 20)
     private ValuationStatus status;
 
-   
+   @Column(name = "redis_sent", nullable = false, columnDefinition = "boolean default false")
+    private Boolean redisSent = false;
+
+    public Boolean getRedisSent() { return redisSent; }
+    public void setRedisSent(Boolean redisSent) { this.redisSent = redisSent; }
+
 }

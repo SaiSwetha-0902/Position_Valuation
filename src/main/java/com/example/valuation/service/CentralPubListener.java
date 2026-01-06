@@ -16,26 +16,30 @@ import com.example.valuation.entity.ValuationEntity;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.github.sushmithashiva04ops.centraleventpublisher.listener.DynamicOutboxListener;
-
+import com.example.valuation.service.DlqService;;
 @Service
 public class CentralPubListener {
 
     private static final Logger logger = LoggerFactory.getLogger(CentralPubListener.class);
 
     private static final int QUEUE_CAPACITY = 1000;
-    private static final int BATCH_SIZE = 50;
+    private static final int MAX_BATCH_SIZE = 50;
 
     private final DynamicOutboxListener outboxListener;
 
+
+
     @Autowired
     private ValuationService valuationService;
-    
+
     @Autowired
     private StatusTrackingService statusTrackingService;
-   
 
     @Autowired
     private ObjectMapper objectMapper;
+
+     @Autowired
+    private DlqService dlqService;
 
     private final BlockingQueue<String> bufferQueue =
             new LinkedBlockingQueue<>(QUEUE_CAPACITY);
@@ -45,7 +49,6 @@ public class CentralPubListener {
     public CentralPubListener(DynamicOutboxListener outboxListener) {
         this.outboxListener = outboxListener;
     }
-
 
     @Scheduled(fixedRate = 60000)
     public void fetchAndBufferMessages() {
@@ -73,77 +76,87 @@ public class CentralPubListener {
         logger.info("Buffered {} messages", newMessages.size());
     }
 
+    @Scheduled(fixedRate = 5000)
+    public void processBatch() {
 
-@Scheduled(fixedRate = 5000)
-public void processBatch() {
-
-    List<String> rawBatch = new ArrayList<>(BATCH_SIZE);
-    bufferQueue.drainTo(rawBatch, BATCH_SIZE);
-
-    if (rawBatch.isEmpty()) return;
-
-    List<CanonicalTradeDTO> trades = new ArrayList<>();
-
-    for (String msg : rawBatch) {
-        try {
-            trades.add(objectMapper.readValue(msg, CanonicalTradeDTO.class));
-        } catch (Exception e) {
-            sendToDLQ(msg, e.getMessage());
+        int queueSize = bufferQueue.size();
+        if (queueSize == 0) {
+            return;
         }
-    }
 
-    if (trades.isEmpty()) return;
+        int dynamicBatchSize = queueSize / 10;
 
-    try {
+        if (dynamicBatchSize < 1) {
+            dynamicBatchSize = 1;
+        }
 
-        List<ValuationEntity> results = valuationService.valuationBatch(trades);
+        if (dynamicBatchSize > MAX_BATCH_SIZE) {
+            dynamicBatchSize = MAX_BATCH_SIZE;
+        }
 
-        for (ValuationEntity valuation : results) {
-            try 
-            {
-                statusTrackingService.trackStatus(valuation, null);
-            } catch (Exception statusEx) {
-                handleStatusFailure(valuation, statusEx);
+        List<String> rawBatch = new ArrayList<>(dynamicBatchSize);
+        bufferQueue.drainTo(rawBatch, dynamicBatchSize);
+
+        if (rawBatch.isEmpty()) {
+            return;
+        }
+
+        List<CanonicalTradeDTO> trades = new ArrayList<>();
+
+        for (String msg : rawBatch) {
+            try {
+                trades.add(objectMapper.readValue(msg, CanonicalTradeDTO.class));
+            } catch (Exception e) {
+                sendToDLQ(msg, "Deserialization failed: " + e.getMessage());
             }
         }
 
-    } catch (Exception batchException) {
+        if (trades.isEmpty()) {
+            return;
+        }
 
-        for (CanonicalTradeDTO trade : trades) {
-            try {
-                ValuationEntity valuation =
-                        valuationService.valuation(trade);
+        try {
 
+            List<ValuationEntity> results = valuationService.valuationBatch(trades);
+
+            for (ValuationEntity valuation : results) {
                 try {
                     statusTrackingService.trackStatus(valuation, null);
                 } catch (Exception statusEx) {
-                    handleStatusFailure(valuation, statusEx);
+                    sendToDLQ(valuation, "Status tracking failed: " + statusEx.getMessage());
                 }
+            }
 
-            } catch (Exception singleEx) {
+        } catch (Exception batchException) {
 
-            	/*
-                ValuationEntity failedValuation =
-                        valuationService.buildRejectedOrPartial(trade);
-
+            for (CanonicalTradeDTO trade : trades) {
                 try {
-                    statusTrackingService.trackStatus(failedValuation, singleEx);
-                } catch (Exception statusEx) {
-                    handleStatusFailure(failedValuation, statusEx);
-                }
+                    ValuationEntity valuation =
+                            valuationService.valuation(trade);
 
-                sendToDLQ(trade, singleEx.getMessage());
-                */
+                    try {
+                        statusTrackingService.trackStatus(valuation, null);
+                    } catch (Exception statusEx) {
+                        sendToDLQ(valuation, "Status tracking failed: " + statusEx.getMessage());
+                    }
+
+                } catch (Exception singleEx) {
+
+                    try {
+                        statusTrackingService.trackStatus(trade, singleEx);
+                    } catch (Exception statusEx) {
+                       sendToDLQ(trade, "Status tracking failed: " + statusEx.getMessage());
+                    }
+                    sendToDLQ(trade, singleEx.getMessage());
+                    
+                }
             }
         }
-    }
-}
-    private void handleStatusFailure(ValuationEntity valuation, Exception statusEx) {
-        sendToDLQ(valuation, "Status tracking failed: " + statusEx.getMessage());
     }
 
 
     private void sendToDLQ(Object payload, String reason) {
-        logger.error("DLQ payload={}, reason={}", payload, reason);
+        dlqService.saveToDlq(payload, reason);
     }
+
 }

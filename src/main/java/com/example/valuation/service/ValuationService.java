@@ -84,7 +84,7 @@ public class ValuationService {
 
     private ValuationEntity buildEntity(CanonicalTradeDTO trade) {
 
-        logger.info("starting trade {}", trade.getRequestId());
+        logger.info("starting trade {}", trade.getId());
 
         long tradeCount = valuationDao.count() + 1;
         boolean isRejected = tradeCount % 10 == 0;

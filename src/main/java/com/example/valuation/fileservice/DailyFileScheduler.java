@@ -40,7 +40,7 @@ public class DailyFileScheduler {
         LocalDate today = LocalDate.now();
         log.info("Starting daily valuation file job for {}", today);
 
-        // 1️⃣ Fetch only NEW records
+        // Fetch only NEW records
         List<ValuationEntity> newRecords =
                 valuationDao.findByStatusAndValuationDate(ValuationStatus.NEW, today);
 
@@ -49,25 +49,25 @@ public class DailyFileScheduler {
             return;
         }
 
-        // 2️⃣ Group by firmNumber
-        Map<Integer, List<ValuationEntity>> recordsByFirm =
+        // Group by fundNumber
+        Map<Integer, List<ValuationEntity>> recordsByFund =
                 newRecords.stream()
-                        .collect(Collectors.groupingBy(ValuationEntity::getFirmNumber));
+                        .collect(Collectors.groupingBy(ValuationEntity::getFundNumber));
 
-        for (Map.Entry<Integer, List<ValuationEntity>> entry : recordsByFirm.entrySet()) {
+        for (Map.Entry<Integer, List<ValuationEntity>> entry : recordsByFund.entrySet()) {
 
-            Integer firmNumber = entry.getKey();
-            List<ValuationEntity> firmRecords = entry.getValue();
+            Integer fundNumber = entry.getKey();
+            List<ValuationEntity> fundRecords = entry.getValue();
 
-            String fileName = "valuation_" + today + "_fund_" + String.format("%04d", firmNumber) + ".txt";
+            String fileName = "valuation_" + today + "_fund_" + String.format("%04d", fundNumber) + ".txt";
             File localFile = new File(fileName);
             UUID fileId = UUID.randomUUID();
 
             try {
-                // 3️⃣ Write file locally
-                writeFile(localFile, firmRecords);
+                // Write file locally
+                writeFile(localFile, fundRecords);
 
-                // 4️⃣ Upload file to S3
+                // Upload file to S3
                 s3Client.putObject(
                         PutObjectRequest.builder()
                                 .bucket(BUCKET_NAME)
@@ -76,45 +76,45 @@ public class DailyFileScheduler {
                         Paths.get(localFile.getAbsolutePath())
                 );
 
-                // 5️⃣ Mark records FILED in memory
-                for (ValuationEntity v : firmRecords) {
+                // Mark records FILED in memory
+                for (ValuationEntity v : fundRecords) {
                     v.setStatus(ValuationStatus.FILED);
                     v.setFileId(fileId);
                 }
 
-                // 6️⃣ Save status to DB safely
+                // Save status to DB safely
                 try {
-                    valuationDao.saveAll(firmRecords);
+                    valuationDao.saveAll(fundRecords);
                 } catch (Exception dbEx) {
-                    log.error("Failed to update FILED status in DB for firm {}", firmNumber, dbEx);
-                    for (ValuationEntity v : firmRecords) {
+                    log.error("Failed to update FILED status in DB for fund {}", fundNumber, dbEx);
+                    for (ValuationEntity v : fundRecords) {
                         sendStatusDLQ(v, dbEx);
                     }
                 }
 
-                log.info("Successfully filed {} records for firm {}", firmRecords.size(), firmNumber);
+                log.info("Successfully filed {} records for fund {}", fundRecords.size(), fundNumber);
 
             } catch (Exception fileEx) {
-                // ❌ File write / S3 upload failed
-                log.error("File write/upload failed for firm {}", firmNumber, fileEx);
+                // File write / S3 upload failed
+                log.error("File write/upload failed for fund {}", fundNumber, fileEx);
 
                 // Mark all records FAILED in memory
-                for (ValuationEntity v : firmRecords) {
+                for (ValuationEntity v : fundRecords) {
                     v.setStatus(ValuationStatus.FAILED);
                 }
 
                 // Try to persist FAILED status
                 try {
-                    valuationDao.saveAll(firmRecords);
+                    valuationDao.saveAll(fundRecords);
                 } catch (Exception dbEx) {
-                    log.error("Failed to update FAILED status in DB for firm {}", firmNumber, dbEx);
-                    for (ValuationEntity v : firmRecords) {
+                    log.error("Failed to update FAILED status in DB for fund {}", fundNumber, dbEx);
+                    for (ValuationEntity v : fundRecords) {
                         sendStatusDLQ(v, dbEx);
                     }
                 }
 
                 // Send file-level DLQ
-                sendFileDLQ(firmNumber, today, firmRecords, fileEx);
+                sendFileDLQ(fundNumber, today, fundRecords, fileEx);
 
             } finally {
                 // Delete temp file

@@ -40,7 +40,7 @@ public class DailyFileScheduler {
         LocalDate today = LocalDate.now();
         log.info("Starting daily valuation file job for {}", today);
 
-        // 1️⃣ Fetch only NEW records
+        // Fetch only NEW records
         List<ValuationEntity> newRecords =
                 valuationDao.findByStatusAndValuationDate(ValuationStatus.NEW, today);
 
@@ -49,7 +49,7 @@ public class DailyFileScheduler {
             return;
         }
 
-        // 2️⃣ Group by firmNumber
+        // Group by firmNumber
         Map<Integer, List<ValuationEntity>> recordsByFirm =
                 newRecords.stream()
                         .collect(Collectors.groupingBy(ValuationEntity::getFirmNumber));
@@ -64,10 +64,10 @@ public class DailyFileScheduler {
             UUID fileId = UUID.randomUUID();
 
             try {
-                // 3️⃣ Write file locally
+                // Write file locally
                 writeFile(localFile, firmRecords);
 
-                // 4️⃣ Upload file to S3
+                // Upload file to S3
                 s3Client.putObject(
                         PutObjectRequest.builder()
                                 .bucket(BUCKET_NAME)
@@ -76,13 +76,13 @@ public class DailyFileScheduler {
                         Paths.get(localFile.getAbsolutePath())
                 );
 
-                // 5️⃣ Mark records FILED in memory
+                // Mark records FILED in memory
                 for (ValuationEntity v : firmRecords) {
                     v.setStatus(ValuationStatus.FILED);
                     v.setFileId(fileId);
                 }
 
-                // 6️⃣ Save status to DB safely
+                // Save status to DB safely
                 try {
                     valuationDao.saveAll(firmRecords);
                 } catch (Exception dbEx) {
@@ -95,7 +95,7 @@ public class DailyFileScheduler {
                 log.info("Successfully filed {} records for firm {}", firmRecords.size(), firmNumber);
 
             } catch (Exception fileEx) {
-                // ❌ File write / S3 upload failed
+                // File write / S3 upload failed
                 log.error("File write/upload failed for firm {}", firmNumber, fileEx);
 
                 // Mark all records FAILED in memory

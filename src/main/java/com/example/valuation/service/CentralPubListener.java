@@ -1,18 +1,28 @@
 package com.example.valuation.service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jms.annotation.JmsListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import com.example.valuation.dao.InboxDao;
 import com.example.valuation.dto.CanonicalTradeDTO;
+import com.example.valuation.entity.Inbox;
+import com.example.valuation.entity.InboxStatus;
 import com.example.valuation.entity.ValuationEntity;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.github.sushmithashiva04ops.centraleventpublisher.listener.DynamicOutboxListener;
@@ -21,13 +31,6 @@ import com.example.valuation.service.DlqService;;
 public class CentralPubListener {
 
     private static final Logger logger = LoggerFactory.getLogger(CentralPubListener.class);
-
-    private static final int QUEUE_CAPACITY = 1000;
-    private static final int MAX_BATCH_SIZE = 50;
-
-    private final DynamicOutboxListener outboxListener;
-
-
 
     @Autowired
     private ValuationService valuationService;
@@ -38,122 +41,103 @@ public class CentralPubListener {
     @Autowired
     private ObjectMapper objectMapper;
 
-     @Autowired
+    @Autowired
     private DlqService dlqService;
+     
+    @Autowired
+    private InboxDao inboxDao;
 
-    private final BlockingQueue<String> bufferQueue =
-            new LinkedBlockingQueue<>(QUEUE_CAPACITY);
+    // For extracting ID from payload received via MQ
+    private UUID extractEventId(String payload) {
+         try {
+         	logger.info("Fetching ID from payload..");
+             JsonNode root = objectMapper.readTree(payload);
+             return UUID.fromString(root.get("id").asText());
+         } catch (Exception e) {
+         	logger.error("Fetching ID from payload failed!");
+             throw new IllegalArgumentException("Invalid payload: missing ID", e);
+         }
+     }
+     
+     // Listens to publisher MQ for live messages and stores in inbox
+     @JmsListener(destination = "valid.mq")
+     @Transactional
+     public void onMessage(String message) {
+     	UUID eventId = extractEventId(message); // from payload/header
 
-    private int lastFetchedSize = 0;
+     	/*
+     	 * No point in checking duplicates because eventId is @Id 
+     	 * in entity so naturally unique constraints
+     	 */
+     	/*
+         if (inboxDao.existsByEventId(eventId)) {
+             return; // duplicate delivery, safe to ignore
+         }
+         */
 
-    public CentralPubListener(DynamicOutboxListener outboxListener) {
-        this.outboxListener = outboxListener;
-    }
+     	logger.info("Fetched ID from payload: {}. Creating inbox entry..", eventId);
+         Inbox inboxEntry = new Inbox();
+         inboxEntry.setEventId(eventId);
+         inboxEntry.setPayload(message);
+         inboxEntry.setStatus(InboxStatus.NEW);
+         inboxEntry.setCreatedAt(LocalDateTime.now());
+         
+         inboxDao.save(inboxEntry);
+         logger.info("Inbox entry created successfully for payload with ID: {}", eventId);
+     }
+     
+     // Runs every 5 seconds to process messages in inbox
+     @Scheduled(fixedRate = 5000)
+     @Transactional
+     public void processMessages() {
 
-    @Scheduled(fixedRate = 60000)
-    public void fetchAndBufferMessages() {
+         // 1. Atomically claim NEW inbox rows 
+         List<Inbox> inboxBatch = inboxDao.claimBatch(100);
 
-        int currentSize = outboxListener.getQueueSize("valid.mq");
+         if (inboxBatch.isEmpty()) {
+             return;
+         }
 
-        if (lastFetchedSize >= currentSize) {
-            return;
-        }
+         List<CanonicalTradeDTO> trades = new ArrayList<>();
 
-        List<String> allMessages = outboxListener.getMessages("valid.mq");
-        List<String> newMessages =
-                allMessages.subList(lastFetchedSize, currentSize);
+         // 2. Deserialize payloads
+         for (Inbox inbox : inboxBatch) {
+             try {
+                 CanonicalTradeDTO trade =
+                         objectMapper.readValue(inbox.getPayload(), CanonicalTradeDTO.class);
 
-        for (String msg : newMessages) {
-            try {
-                bufferQueue.put(msg);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-        }
+                 trades.add(trade);
 
-        lastFetchedSize = currentSize;
-        logger.info("Buffered {} messages", newMessages.size());
-    }
+             } catch (Exception e) {
+                 inboxDao.markFailed(inbox.getEventId());
+                 sendToDLQ(inbox.getPayload(),
+                         "Deserialization failed: " + e.getMessage());
+             }
+         }
 
-    @Scheduled(fixedRate = 5000)
-    public void processBatch() {
+         if (trades.isEmpty()) {
+             return;
+         }
 
-        int queueSize = bufferQueue.size();
-        if (queueSize == 0) {
-            return;
-        }
+         // 3. Batch valuation
+         List<ValuationEntity> results =
+                 valuationService.valuationBatch(trades);
 
-        int dynamicBatchSize = queueSize / 10;
+         // 4. Post-processing per valuation
+         for (ValuationEntity valuation : results) {
+             UUID eventId = valuation.getId();
 
-        if (dynamicBatchSize < 1) {
-            dynamicBatchSize = 1;
-        }
+             try {
+                 statusTrackingService.trackStatus(valuation, null);
+                 inboxDao.markDone(eventId);
 
-        if (dynamicBatchSize > MAX_BATCH_SIZE) {
-            dynamicBatchSize = MAX_BATCH_SIZE;
-        }
-
-        List<String> rawBatch = new ArrayList<>(dynamicBatchSize);
-        bufferQueue.drainTo(rawBatch, dynamicBatchSize);
-
-        if (rawBatch.isEmpty()) {
-            return;
-        }
-
-        List<CanonicalTradeDTO> trades = new ArrayList<>();
-
-        for (String msg : rawBatch) {
-            try {
-                trades.add(objectMapper.readValue(msg, CanonicalTradeDTO.class));
-            } catch (Exception e) {
-                sendToDLQ(msg, "Deserialization failed: " + e.getMessage());
-            }
-        }
-
-        if (trades.isEmpty()) {
-            return;
-        }
-
-        try {
-
-            List<ValuationEntity> results = valuationService.valuationBatch(trades);
-
-            for (ValuationEntity valuation : results) {
-                try {
-                    statusTrackingService.trackStatus(valuation, null);
-                } catch (Exception statusEx) {
-                    sendToDLQ(valuation, "Status tracking failed: " + statusEx.getMessage());
-                }
-            }
-
-        } catch (Exception batchException) {
-
-            for (CanonicalTradeDTO trade : trades) {
-                try {
-                    ValuationEntity valuation =
-                            valuationService.valuation(trade);
-
-                    try {
-                        statusTrackingService.trackStatus(valuation, null);
-                    } catch (Exception statusEx) {
-                        sendToDLQ(valuation, "Status tracking failed: " + statusEx.getMessage());
-                    }
-
-                } catch (Exception singleEx) {
-
-                    try {
-                        statusTrackingService.trackStatus(trade, singleEx);
-                    } catch (Exception statusEx) {
-                       sendToDLQ(trade, "Status tracking failed: " + statusEx.getMessage());
-                    }
-                    sendToDLQ(trade, singleEx.getMessage());
-                    
-                }
-            }
-        }
-    }
-
+             } catch (Exception statusEx) {
+                 inboxDao.markFailed(eventId);
+                 sendToDLQ(valuation,
+                         "Status tracking failed: " + statusEx.getMessage());
+             }
+         }
+     }
 
     private void sendToDLQ(Object payload, String reason) {
         dlqService.saveToDlq(payload, reason);

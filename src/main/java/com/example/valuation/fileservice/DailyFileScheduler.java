@@ -3,6 +3,8 @@ package com.example.valuation.fileservice;
 import com.example.valuation.dao.ValuationDao;
 import com.example.valuation.entity.ValuationEntity;
 import com.example.valuation.entity.ValuationStatus;
+import com.example.valuation.service.DlqService;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -30,6 +32,9 @@ public class DailyFileScheduler {
 
     @Autowired
     private S3Client s3Client;
+    
+    @Autowired
+    private DlqService dlqService;
 
     private static final String BUCKET_NAME = "recon-buckets";
 
@@ -88,7 +93,7 @@ public class DailyFileScheduler {
                 } catch (Exception dbEx) {
                     log.error("Failed to update FILED status in DB for fund {}", fundNumber, dbEx);
                     for (ValuationEntity v : fundRecords) {
-                        sendStatusDLQ(v, dbEx);
+                        sendtoDLQ(v,"Failed to update FILED status in DB for fund {}"+ dbEx.getMessage());
                     }
                 }
 
@@ -109,12 +114,10 @@ public class DailyFileScheduler {
                 } catch (Exception dbEx) {
                     log.error("Failed to update FAILED status in DB for fund {}", fundNumber, dbEx);
                     for (ValuationEntity v : fundRecords) {
-                        sendStatusDLQ(v, dbEx);
+                        sendtoDLQ(v,"Failed to update FAILED status in DB for fund {}"+fundNumber.toString()+ dbEx.getMessage());
                     }
                 }
 
-                // Send file-level DLQ
-                sendFileDLQ(fundNumber, today, fundRecords, fileEx);
 
             } finally {
                 // Delete temp file
@@ -181,15 +184,9 @@ public class DailyFileScheduler {
         return String.format("%0" + len + "." + decimals + "f", num);
     }
 
-    private void sendFileDLQ(Integer firmNumber, LocalDate date, List<ValuationEntity> records, Exception e) {
-        log.error("FILE_DLQ → firm={}, date={}, count={}, reason={}",
-                firmNumber, date, records.size(), e.getMessage());
-        // Hook to central publisher or monitoring system
-    }
+ 
 
-    private void sendStatusDLQ(ValuationEntity v, Exception e) {
-        log.error("STATUS_DLQ → valuationId={}, attemptedStatus={}, reason={}",
-                v.getId(), v.getStatus(), e.getMessage());
-        // Hook to central publisher or monitoring system
+    private void sendtoDLQ(ValuationEntity v, String reason) {
+    	dlqService.saveToDlq(v,reason);
     }
 }

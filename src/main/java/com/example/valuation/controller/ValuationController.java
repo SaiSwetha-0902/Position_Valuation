@@ -23,17 +23,19 @@ public class ValuationController {
 
     @PostMapping("/process")
     public ResponseEntity<ValuationEntity> process(@RequestBody CanonicalTradeDTO dto) {
-    try {
-        ValuationEntity valuation = valuationService.valuation(dto);
-        //statusTrackingService.trackStatus(dto,null);
-        if(valuation !=null) {
-            
-        }
-        return ResponseEntity.ok(valuation);
-    } catch (Exception e) {
-       // statusTrackingService.trackStatus(dto, e);
-        return ResponseEntity.badRequest().body(null);
-    } 
-}
+	    try {
+	        ValuationEntity valuation = valuationService.valuation(dto);
+	        //statusTrackingService.trackStatus(dto,null);
+	        if(valuation !=null) {
+	            
+	        }
+	        return ResponseEntity.ok(valuation);
+	    } catch (Exception e) {
+	       // statusTrackingService.trackStatus(dto, e);
+	        return ResponseEntity.badRequest().body(null);
+	    } 
+   }
+    
+    // GET mapping
 
 }

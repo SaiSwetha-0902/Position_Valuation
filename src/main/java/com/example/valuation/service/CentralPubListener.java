@@ -16,7 +16,8 @@ import com.example.valuation.entity.ValuationEntity;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.github.sushmithashiva04ops.centraleventpublisher.listener.DynamicOutboxListener;
-import com.example.valuation.service.DlqService;;
+import com.example.valuation.service.DlqService;
+
 @Service
 public class CentralPubListener {
 
@@ -27,8 +28,6 @@ public class CentralPubListener {
 
     private final DynamicOutboxListener outboxListener;
 
-
-
     @Autowired
     private ValuationService valuationService;
 
@@ -38,7 +37,7 @@ public class CentralPubListener {
     @Autowired
     private ObjectMapper objectMapper;
 
-     @Autowired
+    @Autowired
     private DlqService dlqService;
 
     private final BlockingQueue<String> bufferQueue =

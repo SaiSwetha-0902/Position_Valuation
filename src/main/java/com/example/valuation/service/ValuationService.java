@@ -65,6 +65,7 @@ public class ValuationService {
 
         for (CanonicalTradeDTO trade : trades) {
             entities.add(buildEntity(trade));
+           
         }
 
         valuationDao.saveAll(entities);
@@ -86,8 +87,12 @@ public class ValuationService {
 
         logger.info("starting trade {}", trade.getId());
 
+        // DUMMY LOGIC FOR SIMULATING TRADE REJECTION
         long tradeCount = valuationDao.count() + 1;
+        logger.info(valuationDao.count() + " entries present in valuatio_table");
         boolean isRejected = tradeCount % 10 == 0;
+        
+    
 
         ValuationEntity val = new ValuationEntity();
         val.setId(trade.getId());
@@ -127,12 +132,15 @@ public class ValuationService {
             val.setValuationAmount(null);
             val.setCaluclatedBy(null);
             val.setNavValue(null);
+            
+            logger.warn("Order with ID {} REJECTED!!", val.getId());
 
             return val;
         }
 
         val.setConfirmedStatus("CONFIRMED");
         val.setRejectReason(null);
+        logger.info("Order with ID {} CONFIRMED.", val.getId());
 
         NavRecordDTO nav = navService.getNavByFundId(trade.getFundNumber().longValue());
         LocalDate navDate = LocalDate.parse(nav.getDate());
@@ -175,3 +183,6 @@ public class ValuationService {
     }
 
 }
+
+
+

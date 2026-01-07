@@ -98,20 +98,17 @@ public class ValuationEntity {
     @NotNull
     private LocalDate dob;
     
+    // Share quantity, nav, calculated value, valuation date, status is null when order is REJECTED
     @Column(name = "share_quantity")
     private BigDecimal shareQuantity;
 
-
     @Column(name = "valuation_amount")
-    @NotNull
     private BigDecimal valuationAmount;
 
     @Column(name = "valuation_date")
-    @NotNull
     private LocalDate valuationDate;
 
     @Column(name = "caluclatedBy")
-    @NotBlank
     private String caluclatedBy;
 
     @Column(name="confirmed_status", length=20)
@@ -123,10 +120,9 @@ public class ValuationEntity {
 
     @Column(name="nav_value")
     private BigDecimal navValue;
-
     
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20)
+    @Column(name = "status", length = 20)
     private ValuationStatus status;
 
    @Column(name = "redis_sent", nullable = false, columnDefinition = "boolean default false")

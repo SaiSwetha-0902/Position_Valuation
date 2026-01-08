@@ -14,9 +14,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-
+@CrossOrigin(origins = "http://localhost:4200")
 @RestController
-@RequestMapping("/valuation")
+@RequestMapping("/api/valuation")
 public class ValuationController {
 	private static final Logger logger = LoggerFactory.getLogger(ValuationService.class);
 

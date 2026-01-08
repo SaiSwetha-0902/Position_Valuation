@@ -43,6 +43,9 @@ public class ValuationService {
     private PositionService positionService;
 
 
+    public List<ValuationEntity> allValuationRecords() {
+    	return valuationDao.findAll();
+    }
 
     @Transactional
     public ValuationEntity valuation(CanonicalTradeDTO trade) {

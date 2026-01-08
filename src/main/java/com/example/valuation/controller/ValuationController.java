@@ -6,6 +6,10 @@ import com.example.valuation.entity.ValuationEntity;
 import com.example.valuation.service.ValuationService;
 import com.example.valuation.service.StatusTrackingService;
 
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/valuation")
 public class ValuationController {
+	private static final Logger logger = LoggerFactory.getLogger(ValuationService.class);
 
     @Autowired
     private ValuationService valuationService;
@@ -36,6 +41,20 @@ public class ValuationController {
 	    } 
    }
     
-    // GET mapping
+    // Fetch all records
+    @GetMapping("/valuations")
+    public ResponseEntity<List<ValuationEntity>> getAllValuations() {
+
+        List<ValuationEntity> valuations = valuationService.allValuationRecords();
+
+        if (valuations.isEmpty()) {
+        	logger.info("Valuation table is empty!!");
+            return ResponseEntity.noContent().build(); // 204 table empty
+        }
+
+        logger.info("Found {} records in valuation table..", valuations.size());
+        return ResponseEntity.ok(valuations); // 200
+    }
+
 
 }

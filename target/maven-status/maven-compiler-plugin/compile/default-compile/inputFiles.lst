@@ -10,12 +10,15 @@ D:\Samuela\DTCC\Capstone Project\Valuation MS\Position_Valuation\src\main\java\c
 D:\Samuela\DTCC\Capstone Project\Valuation MS\Position_Valuation\src\main\java\com\example\valuation\service\ValuationService.java
 D:\Samuela\DTCC\Capstone Project\Valuation MS\Position_Valuation\src\main\java\com\example\valuation\config\JmsConfig.java
 D:\Samuela\DTCC\Capstone Project\Valuation MS\Position_Valuation\src\main\java\com\example\valuation\config\AwsConfig.java
+D:\Samuela\DTCC\Capstone Project\Valuation MS\Position_Valuation\src\main\java\com\example\valuation\config\CorsConfig.java
 D:\Samuela\DTCC\Capstone Project\Valuation MS\Position_Valuation\src\main\java\com\example\valuation\config\RedisConfig.java
 D:\Samuela\DTCC\Capstone Project\Valuation MS\Position_Valuation\src\main\java\com\example\valuation\service\StatusTrackingService.java
 D:\Samuela\DTCC\Capstone Project\Valuation MS\Position_Valuation\src\main\java\com\example\valuation\entity\PositionHistory.java
 D:\Samuela\DTCC\Capstone Project\Valuation MS\Position_Valuation\src\main\java\com\example\valuation\service\DlqService.java
+D:\Samuela\DTCC\Capstone Project\Valuation MS\Position_Valuation\src\main\java\com\example\valuation\listener\PositionEventListener.java
 D:\Samuela\DTCC\Capstone Project\Valuation MS\Position_Valuation\src\main\java\com\example\valuation\service\PositionService.java
 D:\Samuela\DTCC\Capstone Project\Valuation MS\Position_Valuation\src\main\java\com\example\valuation\dto\NavRecordDTO.java
+D:\Samuela\DTCC\Capstone Project\Valuation MS\Position_Valuation\src\main\java\com\example\valuation\event\ConfirmedTradeEvent.java
 D:\Samuela\DTCC\Capstone Project\Valuation MS\Position_Valuation\src\main\java\com\example\valuation\entity\PositionId.java
 D:\Samuela\DTCC\Capstone Project\Valuation MS\Position_Valuation\src\main\java\com\example\valuation\dto\PositionResponse.java
 D:\Samuela\DTCC\Capstone Project\Valuation MS\Position_Valuation\src\main\java\com\example\valuation\ValuationApplication.java
@@ -23,6 +26,7 @@ D:\Samuela\DTCC\Capstone Project\Valuation MS\Position_Valuation\src\main\java\c
 D:\Samuela\DTCC\Capstone Project\Valuation MS\Position_Valuation\src\main\java\com\example\valuation\service\NavCacheService.java
 D:\Samuela\DTCC\Capstone Project\Valuation MS\Position_Valuation\src\main\java\com\example\valuation\service\CentralPubListener.java
 D:\Samuela\DTCC\Capstone Project\Valuation MS\Position_Valuation\src\main\java\com\example\valuation\dao\PositionHistoryRepository.java
+D:\Samuela\DTCC\Capstone Project\Valuation MS\Position_Valuation\src\main\java\com\example\valuation\config\AsyncConfig.java
 D:\Samuela\DTCC\Capstone Project\Valuation MS\Position_Valuation\src\main\java\com\example\valuation\entity\ValuationEntity.java
 D:\Samuela\DTCC\Capstone Project\Valuation MS\Position_Valuation\src\main\java\com\example\valuation\dao\PositionRepository.java
 D:\Samuela\DTCC\Capstone Project\Valuation MS\Position_Valuation\src\main\java\com\example\valuation\dao\ValuationDao.java

@@ -11,6 +11,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -54,6 +55,15 @@ public class ValuationController {
         logger.info("Found {} records in valuation table..", valuations.size());
         return ResponseEntity.ok(valuations); // 200
     }
+    
+    // Fetch all records in paginated format
+    @GetMapping("/paginated-valuations")
+    public Page<ValuationEntity> getValuations(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return valuationService.getPaginated(page, size);
+    }
+
 
 
 }

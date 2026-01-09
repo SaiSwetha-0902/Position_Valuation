@@ -6,6 +6,8 @@ import com.example.valuation.entity.ValuationEntity;
 import com.example.valuation.model.*;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,8 +45,14 @@ public class ValuationService {
     private PositionService positionService;
 
 
+    // All valuation records
     public List<ValuationEntity> allValuationRecords() {
     	return valuationDao.findAll();
+    }
+    
+    // Pagination
+    public Page getPaginated(int page, int size) {
+        return valuationDao.findAll(PageRequest.of(page, size));
     }
 
     @Transactional
